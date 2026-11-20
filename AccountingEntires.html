@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد القيود المحاسبية من فواتير الإكسيل</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #0d47a1;
+            --light-blue: #1976d2;
+            --primary-green: #00897b;
+            --light-green: #26a69a;
+            --bg-gradient: linear-gradient(135deg, #e3f2fd 0%, #e0f2f1 100%);
+            --white: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1150px;
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(13, 71, 161, 0.1);
+            overflow: hidden;
+            border-top: 6px solid var(--primary-green);
+        }
+
+        header {
+            background: linear-gradient(90deg, var(--primary-blue), var(--primary-green));
+            color: var(--white);
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.7rem;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+
+        .form-section {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--primary-blue);
+            font-size: 0.95rem;
+        }
+
+        .form-group input[type="number"],
+        .form-group select,
+        .file-upload-wrapper {
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background-color: #f8fafc;
+        }
+
+        .form-group input[type="number"]:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            background-color: var(--white);
+            box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.15);
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            border-style: dashed;
+            border-color: var(--light-blue);
+        }
+
+        .file-upload-wrapper:hover {
+            background-color: #eff6ff;
+            border-color: var(--primary-green);
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .file-name {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 85%;
+        }
+
+        .actions {
+            padding: 20px 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            background-color: #f8fafc;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary-blue), var(--light-blue));
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.25);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(13, 71, 161, 0.35);
+        }
+
+        .btn-success {
+            background: linear-gradient(90deg, var(--primary-green), var(--light-green));
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(0, 137, 123, 0.25);
+            display: none;
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 6px 16px rgba(0, 137, 123, 0.35);
+        }
+
+        .alert {
+            margin: 15px 30px 0;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            display: none;
+        }
+
+        .alert-error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border-right: 4px solid #dc2626;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #15803d;
+            border-right: 4px solid #16a34a;
+        }
+
+        .preview-section {
+            padding: 25px 30px;
+            display: none;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .preview-header h2 {
+            color: var(--primary-blue);
+            font-size: 1.2rem;
+        }
+
+        .badge {
+            background-color: #e0f2f1;
+            color: var(--primary-green);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            max-height: 450px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        thead {
+            background: linear-gradient(90deg, var(--primary-blue), var(--primary-green));
+            color: var(--white);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        th,
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        tbody tr:hover {
+            background-color: #e3f2fd;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.35rem;
+            }
+
+            .form-section {
+                padding: 20px;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        tr.unbalanced-row {
+            background-color: #fee2e2 !important;
+            color: #b91c1c !important;
+            font-weight: 700;
+        }
+
+        tr.unbalanced-row:hover {
+            background-color: #fecaca !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>نظام تحويل الفواتير إلى قيود يومية</h1>
+            <p>ارفع ملف الإكسيل وحدد نوع القيد ورقم البداية لتوليد الشيت المحدث فوراً</p>
+        </header>
+
+        <div id="alertBox" class="alert"></div>
+
+        <div class="form-section">
+            <div class="form-group">
+                <label for="excelFile">1. اختر ملف الإكسيل (Input):</label>
+                <div class="file-upload-wrapper">
+                    <span class="file-name" id="fileNameDisplay">اضغط لاختيار ملف (.xlsx, .xls)</span>
+                    <span>📁</span>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="entryType">2. نوع القيد:</label>
+                <select id="entryType">
+                    <option value="مشتريات">مشتريات</option>
+                    <option value="مبيعات">مبيعات</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="startEntryNum">3. بداية رقم القيد:</label>
+                <input type="number" id="startEntryNum" placeholder="مثال: 140" min="1" value="1">
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="processExcel()">⚙️ معالجة البيانات وتوليد القيد</button>
+            <button class="btn btn-success" id="downloadBtn" onclick="downloadExcel()">⬇️ تحميل ملف الإكسيل
+                الجديد</button>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="preview-header">
+                <h2>معاينة البيانات الناتجة</h2>
+                <span class="badge" id="rowsCountBadge">0 صف</span>
+            </div>
+            <div class="table-responsive">
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>رقم المستند</th>
+                            <th>نوع المستند</th>
+                            <th>رقم القيد</th>
+                            <th>مدين</th>
+                            <th>دائن</th>
+                            <th>قيمة الحركة</th>
+                            <th>نوع الحركة</th>
+                            <th>اسم الحساب الرئيسي</th>
+                            <th>شرح القيد</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let generatedData = [];
+
+        document.getElementById('excelFile').addEventListener('change', function (e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'اضغط لاختيار ملف (.xlsx, .xls)';
+            document.getElementById('fileNameDisplay').textContent = fileName;
+            document.getElementById('fileNameDisplay').style.color = '#0f172a';
+        });
+
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.style.display = 'block';
+        }
+
+        function normalizeArabic(str) {
+            if (str === null || str === undefined) return '';
+            return str.toString().trim()
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/ى/g, 'ي')
+                .replace(/ة/g, 'ه')
+                .replace(/\s+/g, ' ');
+        }
+
+        function parseNumber(val) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') return val;
+            const cleaned = val.toString().replace(/,/g, '').trim();
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatDate(val) {
+            if (!val) return '';
+            if (typeof val === 'number') {
+                const dateObj = XLSX.SSF.parse_date_code(val);
+                if (dateObj) {
+                    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    return `${dateObj.d}-${months[dateObj.m - 1]}`;
+                }
+            }
+            const parsed = new Date(val);
+            if (!isNaN(parsed.getTime())) {
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                return `${parsed.getDate()}-${months[parsed.getMonth()]}`;
+            }
+            return val.toString().trim();
+        }
+
+        function findHeaderRowIndex(rawMatrix) {
+            const knownHeaders = ['نوع المستند', 'تاريخ الإصدار', 'تاريخ الاصدار', 'قيمة الفاتورة', 'الرقم الداخلى', 'الرقم الداخلي'];
+            for (let r = 0; r < rawMatrix.length; r++) {
+                const rowCells = rawMatrix[r].map(c => normalizeArabic(c));
+                const matches = knownHeaders.filter(h => rowCells.includes(normalizeArabic(h)));
+                if (matches.length >= 2) {
+                    return r;
+                }
+            }
+            return 0;
+        }
+
+        function processExcel() {
+            const fileInput = document.getElementById('excelFile');
+            const entryType = document.getElementById('entryType').value;
+            let currentEntryNum = parseInt(document.getElementById('startEntryNum').value);
+
+            if (!fileInput.files.length) {
+                showAlert('يرجى اختيار ملف الإكسيل أولاً!', 'error');
+                return;
+            }
+
+            if (isNaN(currentEntryNum)) {
+                showAlert('يرجى إدخال رقم بداية القيد بشكل صحيح!', 'error');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    const rawMatrix = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ''});
+                    if (!rawMatrix || rawMatrix.length === 0) {
+                        showAlert('الملف المرفوع فارغ!', 'error');
+                        return;
+                    }
+
+                    const headerRowIdx = findHeaderRowIndex(rawMatrix);
+                    const headerCells = rawMatrix[headerRowIdx];
+
+                    const colMap = {};
+                    headerCells.forEach((cell, idx) => {
+                        const norm = normalizeArabic(cell);
+                        if (norm) colMap[norm] = idx;
+                    });
+
+                    const getValByNames = (rowArr, names) => {
+                        for (const name of names) {
+                            const idx = colMap[normalizeArabic(name)];
+                            if (idx !== undefined && idx < rowArr.length) {
+                                return rowArr[idx];
+                            }
+                        }
+                        return '';
+                    };
+
+                    generatedData = [];
+
+                    for (let r = rawMatrix.length - 1; r > headerRowIdx; r--) {
+                        const rowArr = rawMatrix[r];
+                        if (!rowArr || rowArr.every(c => c === '' || c === null || c === undefined)) continue;
+
+                        const issueDate = formatDate(getValByNames(rowArr, ['تاريخ الإصدار', 'تاريخ الاصدار']));
+                        const internalId = getValByNames(rowArr, ['الرقم الداخلى', 'الرقم الداخلي']);
+                        const docType = getValByNames(rowArr, ['نوع المستند']);
+
+                        const invoiceVal = parseNumber(getValByNames(rowArr, ['قيمة الفاتورة']));
+                        const vatVal = parseNumber(getValByNames(rowArr, ['ضريبة القيمة المضافة', 'ضريبة القيمة المضافه']));
+                        const invoiceDiscount = parseNumber(getValByNames(rowArr, ['خصم الفاتورة', 'خصم الفاتوره']));
+                        const withholdingTax = parseNumber(getValByNames(rowArr, ['الخصم تحت حساب الضريبة', 'الخصم تحت حساب الضريبه', 'الخصم تحت الحساب']));
+                        const totalInvoice = parseNumber(getValByNames(rowArr, ['إجمالى الفاتورة', 'إجمالي الفاتورة', 'اجمالي الفاتورة', 'اجمالى الفاتورة']));
+
+                        if (!internalId && totalInvoice === 0 && invoiceVal === 0 && vatVal === 0) {
+                            continue;
+                        }
+
+                        const description = `${entryType} فاتوره رقم ${internalId}`;
+                        let addedRowsForThisInvoice = 0;
+
+                        const addNewRow = (amount, moveType, accountName) => {
+                            if (!amount || amount === 0) return;
+                            const cleanAmount = Number(amount);
+                            generatedData.push({
+                                'التاريخ': issueDate,
+                                'رقم المستند': internalId,
+                                'نوع المستند': docType,
+                                'رقم القيد': currentEntryNum,
+                                'مدين': moveType === 'من حـ / ' ? cleanAmount : 0,
+                                'دائن': moveType === '     الى حـ / ' ? cleanAmount : 0,
+                                'قيمة الحركة': cleanAmount,
+                                'نوع الحركة': moveType,
+                                'اسم الحساب الرئيسي': accountName,
+                                'شرح القيد': description
+                            });
+                            addedRowsForThisInvoice++;
+                        };
+
+                        if (invoiceDiscount > 0) {
+                            if (entryType === 'مشتريات') {
+                                addNewRow(totalInvoice, 'من حـ / ', 'المشتريات');
+                                addNewRow(totalInvoice, '     الى حـ / ', 'الموردون');
+                            } else {
+                                addNewRow(totalInvoice, 'من حـ / ', 'العملاء');
+                                addNewRow(totalInvoice, '     الى حـ / ', 'المبيعات');
+                            }
+                        } else {
+                            if (entryType === 'مشتريات') {
+                                addNewRow(invoiceVal, 'من حـ / ', 'المشتريات');
+                                addNewRow(vatVal, 'من حـ / ', 'ضريبة_القيمة_المضافه');
+                                addNewRow(withholdingTax, '     الى حـ / ', 'ضريبة_الخصم_والاضافة');
+                                addNewRow(totalInvoice, '     الى حـ / ', 'الموردون');
+                            } else {
+                                addNewRow(totalInvoice, 'من حـ / ', 'العملاء');
+                                addNewRow(withholdingTax, 'من حـ / ', 'ضريبة_الخصم_والاضافة');
+                                addNewRow(invoiceVal, '     الى حـ / ', 'المبيعات');
+                                addNewRow(vatVal, '     الى حـ / ', 'ضريبة_القيمة_المضافه');
+                            }
+                        }
+
+                        if (addedRowsForThisInvoice > 0) {
+                            // استخراج صفوف الفاتورة الحالية فقط للتحقق من توازن المدين والدائن
+                            const invoiceRows = generatedData.slice(-addedRowsForThisInvoice);
+                            const totalDebit = invoiceRows.reduce((sum, item) => sum + item['مدين'], 0);
+                            const totalCredit = invoiceRows.reduce((sum, item) => sum + item['دائن'], 0);
+
+                            // التحقق من وجود فرق (مع مراعاة دقة الكسور العشرية البسيطة في JavaScript)
+                            const isUnbalanced = Math.abs(totalDebit - totalCredit) > 0.0001;
+
+                            invoiceRows.forEach(item => {
+                                item.isUnbalanced = isUnbalanced;
+                            });
+
+                            currentEntryNum++;
+                        }
+                    }
+
+                    if (generatedData.length === 0) {
+                        showAlert('لم يتم العثور على بيانات صالحة للمعالجة. تأكد من وجود قيم في الأعمدة المالية.', 'error');
+                        return;
+                    }
+
+                    renderTable(generatedData);
+                    document.getElementById('downloadBtn').style.display = 'inline-flex';
+                    showAlert(`تمت معالجة الفواتير بنجاح! تم توليد ${generatedData.length} صف.`, 'success');
+
+                } catch (error) {
+                    console.error(error);
+                    showAlert('حدث خطأ أثناء قراءة الملف. يرجى التأكد من أن الملف بصيغة إكسيل سليمة.', 'error');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('resultTableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                if (row.isUnbalanced) tr.classList.add('unbalanced-row');
+                tr.innerHTML = `
+                <td>${row['التاريخ']}</td>
+                <td>${row['رقم المستند']}</td>
+                <td>${row['نوع المستند']}</td>
+                <td><strong>${row['رقم القيد']}</strong></td>
+                <td>${row['مدين'].toLocaleString('en-US', {maximumFractionDigits: 10})}</td>
+                <td>${row['دائن'].toLocaleString('en-US', {maximumFractionDigits: 10})}</td>
+                <td style="font-weight:bold; color:#0d47a1;">${row['قيمة الحركة'].toLocaleString('en-US', {maximumFractionDigits: 10})}</td>
+                <td>${row['نوع الحركة']}</td>
+                <td>${row['اسم الحساب الرئيسي']}</td>
+                <td>${row['شرح القيد']}</td>
+            `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('rowsCountBadge').textContent = `${data.length} صف`;
+            document.getElementById('previewSection').style.display = 'block';
+        }
+
+        function downloadExcel() {
+            if (generatedData.length === 0) return;
+
+            // تجهيز مصفوفة البيانات بالأعمدة المطلوبة بالترتيب الصحيح (A إلى J)
+            // A: التاريخ | B: رقم المستند | C: نوع المستند | D: رقم القيد
+            // E: مدين | F: دائن | G: فارغ (أو فراغ بين الأعمدة حسب ترتيبك: E مدين، F دائن، H قيمة الحركة، I نوع الحركة)
+            const headers = [
+                'التاريخ',              // A
+                'رقم المستند',          // B
+                'نوع المستند',          // C
+                'رقم القيد',            // D
+                'مدين',                 // E
+                'دائن',                 // F
+                '',                     // G (عمود فاصل حتى تطابق قيمة الحركة العمود H ونوع الحركة العمود I)
+                'قيمة الحركة',          // H
+                'نوع الحركة',           // I
+                'اسم الحساب الرئيسي',   // J
+                'شرح القيد'             // K
+            ];
+
+            const aoa = [headers];
+
+            generatedData.forEach((row) => {
+                aoa.push([
+                    row['التاريخ'],
+                    row['رقم المستند'],
+                    row['نوع المستند'],
+                    row['رقم القيد'],
+                    0, // سيتم استبدالها بمعادلة المدين في الخطوة التالية
+                    0, // سيتم استبدالها بمعادلة الدائن في الخطوة التالية
+                    '',
+                    row['قيمة الحركة'],
+                    row['نوع الحركة'],
+                    row['اسم الحساب الرئيسي'],
+                    row['شرح القيد']
+                ]);
+            });
+
+            const newWorksheet = XLSX.utils.aoa_to_sheet(aoa);
+
+            // إضافة المعادلات الديناميكية لكل صف في العمود E (مدين) والعمود F (دائن)
+            for (let i = 0; i < generatedData.length; i++) {
+                const excelRow = i + 2; // الصف الأول هو العناوين، والبيانات تبدأ من الصف 2
+                const debitCellRef = `E${excelRow}`;
+                const creditCellRef = `F${excelRow}`;
+
+                newWorksheet[debitCellRef] = {
+                    t: 'n',
+                    f: `IF(I${excelRow}=$R$3,H${excelRow},0)`
+                };
+
+                newWorksheet[creditCellRef] = {
+                    t: 'n',
+                    f: `IF(I${excelRow}=$R$4,H${excelRow},0)`
+                };
+            }
+
+            // وضع القيم المرجعية في R3 و R4 لكي تعمل المعادلات مباشرة عند فتح الملف
+            newWorksheet['R3'] = {t: 's', v: 'من حـ / '};
+            newWorksheet['R4'] = {t: 's', v: '     الى حـ / '};
+
+            // تحديث نطاق الورقة ليشمل العمود R
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+            if (range.e.c < 17) range.e.c = 17; // العمود R هو رقم 17 (بدءاً من 0)
+            if (range.e.r < 3) range.e.r = 3;
+            newWorksheet['!ref'] = XLSX.utils.encode_range(range);
+
+            // ضبط اتجاه الورقة (Page Layout Right-to-Left)
+            newWorksheet['!views'] = [{rightToLeft: true}];
+
+            // ضبط عرض الأعمدة
+            newWorksheet['!cols'] = [
+                {wch: 12}, // A: التاريخ
+                {wch: 15}, // B: رقم المستند
+                {wch: 14}, // C: نوع المستند
+                {wch: 12}, // D: رقم القيد
+                {wch: 14}, // E: مدين
+                {wch: 14}, // F: دائن
+                {wch: 4}, // G: فاصل
+                {wch: 16}, // H: قيمة الحركة
+                {wch: 14}, // I: نوع الحركة
+                {wch: 24}, // J: اسم الحساب الرئيسي
+                {wch: 28}, // K: شرح القيد
+                {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8},
+                {wch: 14}  // R: المرجع ($R$3, $R$4)
+            ];
+
+            const newWorkbook = XLSX.utils.book_new();
+            if (!newWorkbook.Workbook) newWorkbook.Workbook = {};
+            if (!newWorkbook.Workbook.Views) newWorkbook.Workbook.Views = [];
+            newWorkbook.Workbook.Views[0] = {RTL: true};
+
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'القيود_المحدثة');
+
+            const entryType = document.getElementById('entryType').value;
+            XLSX.writeFile(newWorkbook, `قيود_${entryType}_محدثة.xlsx`);
+        }
+    </script>
+
+</body>
+
+</html>
